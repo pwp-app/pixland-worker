@@ -1,3 +1,8 @@
 name = "pixland-worker"
 main = "src/index.ts"
 compatibility_date = "2022-06-10"
+account_id = "b6754402d59fc29ee8b62119014fec89"
+
+[[r2_buckets]]
+binding = 'pixland'
+bucket_name = 'pixland'
