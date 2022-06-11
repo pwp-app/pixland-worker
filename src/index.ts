@@ -1,6 +1,7 @@
 /* eslint-disable no-undef */
 import Router from '@tsndr/cloudflare-worker-router';
 import { ERRORS } from './constants/errors';
+import { varyWrap } from './utils/cors';
 import { getFileKey } from './utils/file';
 import { CommonError, errorWrap, successWrap } from './utils/response';
 import { validateAndGetAuthInfo, validateHost, validateRequest } from './utils/validator';
@@ -8,6 +9,7 @@ import { validateAndGetAuthInfo, validateHost, validateRequest } from './utils/v
 const SHA1_HEX_STR_LEN = 40;
 
 export interface Env {
+  cache: Cache;
   pixland: R2Bucket;
 }
 
@@ -20,6 +22,17 @@ export default {
       });
     }
 
+    try {
+      const cached = await env.cache.match(request);
+      if (cached?.body) {
+        // directly assign cached response to return
+        return cached;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    // build up router
     const router = new Router();
     router.cors({
       allowOrigin: new URL(request.url).origin,
@@ -76,7 +89,11 @@ export default {
       } catch (err) {
         const e = err as Error & PromiseRejectedResult;
         errorWrap(res, new CommonError(ERRORS.PUT_OBJECT_FAILED, e?.reason || e?.message));
+        return;
       }
+
+      // remove cache
+      env.cache.delete(request);
     });
 
     router.get('/userData/:fileKey', async (req, res) => {
@@ -90,17 +107,28 @@ export default {
         errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.'));
         return;
       }
+      // get from r2
       const storedData = await env.pixland.get(fileKey);
       if (!storedData) {
         errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.'));
         return;
       }
+      res.body = storedData;
       // return data
       res.status = 200;
-      res.body = storedData;
       res.headers.set('Content-Type', 'appliation/json');
+      res.headers.set('Cache-Control', `no-transform, private, must-revalidate, max-age=0`);
+      res.headers.set('Last-Modified', new Date().toUTCString()); // regard last get time as last modified date to reduce cpu consume for content negotiation
     });
 
-    return router.handle(request);
+    const finalRes = varyWrap(router.handle(request));
+
+    // put final res to cache (RouterResponse is not the actual Response)
+    const requestPath = new URL(request.url).pathname;
+    if (request.method === 'GET' && /^\/userData\//.test(requestPath)) {
+      await env.cache.put(request, finalRes);
+    }
+
+    return finalRes;
   },
 };
