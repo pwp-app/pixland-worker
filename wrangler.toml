@@ -2,8 +2,7 @@ name = "pixland-worker"
 main = "src/index.ts"
 compatibility_date = "2022-06-10"
 account_id = "b6754402d59fc29ee8b62119014fec89"
-zone_id = "b8846fb823a494e03b261cf4f60f003a"
-route = "pixland.pwp.app/*"
+route = "worker.pixland.pwp.app/*"
 
 [[r2_buckets]]
 binding = 'pixland'
