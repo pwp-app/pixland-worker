@@ -41,7 +41,7 @@ export default {
     // build up router
     const router = new Router();
     router.cors({
-      allowOrigin: new URL(request.url).origin,
+      allowOrigin: request.headers.get('origin') || '',
       allowMethods: 'GET, PUT',
       allowHeaders: 'x-pixland-n, x-pixland-a, x-pixland-s, x-pixland-t',
       maxAge: 60 * 60, // 1 hour in secs
