@@ -1,5 +1,5 @@
 import { RouterRequest } from '@tsndr/cloudflare-worker-router';
-import { COMMON_HASH_KEY, WHITELIST_DOMAIN } from '../constants';
+import { COMMON_HASH_KEY, WHITELIST_HOST, WHITELIST_DOMAIN } from '../constants';
 import { hmacSHA256 } from './crypto';
 import { getAuthHeaders } from './headers';
 
@@ -7,7 +7,7 @@ const REQUEST_EXPRIRE_SPAN = 5 * 1000; // 10s
 const SHA256_HEX_STR_LEN = 64;
 
 export const validateHost = (req: Request) => {
-  return WHITELIST_DOMAIN.includes(new URL(req.url).hostname);
+  return WHITELIST_HOST.includes(new URL(req.url).hostname);
 };
 
 export const validateReferer = (req: Request) => {

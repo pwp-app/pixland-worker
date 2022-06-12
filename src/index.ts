@@ -7,9 +7,9 @@ import { CommonError, errorWrap, successWrap } from './utils/response';
 import { validateAndGetAuthInfo, validateHost, validateReferer, validateRequest } from './utils/validator';
 
 const SHA1_HEX_STR_LEN = 40;
+const CACHED_STATUS = [404, 200];
 
 export interface Env {
-  cache: Cache;
   pixland: R2Bucket;
 }
 
@@ -29,7 +29,7 @@ export default {
     }
 
     try {
-      const cached = await env.cache.match(request);
+      const cached = await caches.default.match(request);
       if (cached?.body) {
         // directly assign cached response to return
         return cached;
@@ -51,23 +51,23 @@ export default {
     router.put('/userData/:fileKey', async (req, res) => {
       const { fileKey } = req.params;
       if (!fileKey) {
-        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'File key should not be empty.'));
+        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'File key should not be empty.', 400));
         return;
       }
       // check file key length (file key should be a sha1)
       if (fileKey.length !== SHA1_HEX_STR_LEN) {
-        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.'));
+        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.', 400));
         return;
       }
       const authInfo = validateAndGetAuthInfo(req);
       if (!authInfo) {
-        errorWrap(res, new CommonError(ERRORS.HEADERS_INVALID, 'Invalid headers.'));
+        errorWrap(res, new CommonError(ERRORS.HEADERS_INVALID, 'Invalid headers.', 400));
         return;
       }
       // just re-check auth info for type infer
       const { username, password, sign, timestamp } = authInfo;
       if (!username || !password || !sign) {
-        errorWrap(res, new CommonError(ERRORS.HEADERS_INVALID, 'Invalid headers.'));
+        errorWrap(res, new CommonError(ERRORS.HEADERS_INVALID, 'Invalid headers.', 400));
         return;
       }
       if (
@@ -80,13 +80,13 @@ export default {
           timestamp,
         }))
       ) {
-        errorWrap(res, new CommonError(ERRORS.PAYLOAD_INVALID, 'Invalid request content.'));
+        errorWrap(res, new CommonError(ERRORS.PAYLOAD_INVALID, 'Invalid request content.', 400));
         return;
       }
       // re-calc file key on the worker
       const calcedfileKey = await getFileKey(username, password);
       if (fileKey !== calcedfileKey.hash) {
-        errorWrap(res, new CommonError(ERRORS.PAYLOAD_INVALID, 'Invalid request content.'));
+        errorWrap(res, new CommonError(ERRORS.PAYLOAD_INVALID, 'Invalid request content.', 400));
         return;
       }
       try {
@@ -99,24 +99,24 @@ export default {
       }
 
       // remove cache
-      env.cache.delete(request);
+      caches.default.delete(request);
     });
 
     router.get('/userData/:fileKey', async (req, res) => {
       const { fileKey } = req.params;
       if (!fileKey) {
-        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'File key should not be empty.'));
+        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'File key should not be empty.', 400));
         return;
       }
       // check file key length (file key should be a sha1)
       if (fileKey.length !== SHA1_HEX_STR_LEN) {
-        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.'));
+        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.', 400));
         return;
       }
       // get from r2
       const storedData = await env.pixland.get(fileKey);
       if (!storedData) {
-        errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.'));
+        errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.', 404));
         return;
       }
       res.body = storedData;
@@ -127,12 +127,12 @@ export default {
       res.headers.set('Last-Modified', new Date().toUTCString()); // regard last get time as last modified date to reduce cpu consume for content negotiation
     });
 
-    const finalRes = varyWrap(router.handle(request));
+    const finalRes = varyWrap(await router.handle(request));
 
     // put final res to cache (RouterResponse is not the actual Response)
     const requestPath = new URL(request.url).pathname;
-    if (request.method === 'GET' && /^\/userData\//.test(requestPath)) {
-      await env.cache.put(request, finalRes);
+    if (request.method === 'GET' && /^\/userData\//.test(requestPath) && CACHED_STATUS.includes(finalRes.status)) {
+      caches.default.put(request, finalRes.clone());
     }
 
     return finalRes;
