@@ -2,7 +2,7 @@
 import Router from '@tsndr/cloudflare-worker-router';
 import { ERRORS } from './constants/errors';
 import { varyWrap } from './utils/cors';
-import { getFileKey } from './utils/file';
+import { getFileKey, wrapFileKey } from './utils/file';
 import { CommonError, errorWrap, successWrap } from './utils/response';
 import { validateAndGetAuthInfo, validateHost, validateReferer, validateRequest } from './utils/validator';
 
@@ -84,13 +84,13 @@ export default {
         return;
       }
       // re-calc file key on the worker
-      const calcedfileKey = await getFileKey(username, password);
-      if (fileKey !== calcedfileKey.hash) {
+      const calcedFileKey = await getFileKey(username, password);
+      if (fileKey !== calcedFileKey.hash) {
         errorWrap(res, new CommonError(ERRORS.PAYLOAD_INVALID, 'Invalid request content.', 400));
         return;
       }
       try {
-        await env.pixland.put(calcedfileKey.key, req.body);
+        await env.pixland.put(calcedFileKey.key, req.body);
         successWrap(res);
       } catch (err) {
         const e = err as Error & PromiseRejectedResult;
@@ -116,7 +116,7 @@ export default {
         return;
       }
       // get from r2
-      const storedData = await env.pixland.get(fileKey);
+      const storedData = await env.pixland.get(wrapFileKey(fileKey));
       if (!storedData) {
         errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.', 404));
         return;
@@ -139,7 +139,7 @@ export default {
         errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.', 400));
         return;
       }
-      const storedData = await env.pixland.head(fileKey);
+      const storedData = await env.pixland.head(wrapFileKey(fileKey));
       if (!storedData) {
         errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.', 404));
         return;
