@@ -121,11 +121,11 @@ export default {
         errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.', 404));
         return;
       }
-      res.body = storedData;
+      res.body = await storedData.text();
       res.status = 200;
       res.headers.set('Content-Type', 'text/plain');
       res.headers.set('Cache-Control', `no-transform, private, must-revalidate, max-age=0`);
-      res.headers.set('Last-Modified', new Date().toUTCString()); // regard last get time as last modified date to reduce cpu consume for content negotiation
+      res.headers.set('ETag', storedData.etag);
     });
 
     router.head('/userData/:fileKey', async (req, res) => {
@@ -147,7 +147,8 @@ export default {
       res.body = storedData;
       res.status = 200;
       res.headers.set('Content-Type', 'text/plain');
-      res.headers.set('Cache-Control', `no-transform, private, no-store`);
+      res.headers.set('Cache-Control', `no-transform, private, must-revalidate, max-age=0`);
+      res.headers.set('ETag', storedData.etag);
     });
 
     const finalRes = varyWrap(await router.handle(request));
