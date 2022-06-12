@@ -99,7 +99,9 @@ export default {
       }
 
       // remove cache
-      caches.default.delete(request);
+      caches.default.delete(request, {
+        ignoreMethod: true,
+      });
     });
 
     router.get('/userData/:fileKey', async (req, res) => {
@@ -120,11 +122,32 @@ export default {
         return;
       }
       res.body = storedData;
-      // return data
       res.status = 200;
       res.headers.set('Content-Type', 'appliation/json');
       res.headers.set('Cache-Control', `no-transform, private, must-revalidate, max-age=0`);
       res.headers.set('Last-Modified', new Date().toUTCString()); // regard last get time as last modified date to reduce cpu consume for content negotiation
+    });
+
+    router.head('/userData/:fileKey', async (req, res) => {
+      const { fileKey } = req.params;
+      if (!fileKey) {
+        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'File key should not be empty.', 400));
+        return;
+      }
+      // check file key length (file key should be a sha1)
+      if (fileKey.length !== SHA1_HEX_STR_LEN) {
+        errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.', 400));
+        return;
+      }
+      const storedData = await env.pixland.head(fileKey);
+      if (!storedData) {
+        errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.', 404));
+        return;
+      }
+      res.body = storedData;
+      res.status = 200;
+      res.headers.set('Content-Type', 'appliation/json');
+      res.headers.set('Cache-Control', `no-transform, private, no-store`);
     });
 
     const finalRes = varyWrap(await router.handle(request));
