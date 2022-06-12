@@ -90,7 +90,7 @@ export default {
         return;
       }
       try {
-        await env.pixland.put(calcedfileKey.key, request.body);
+        await env.pixland.put(calcedfileKey.key, req.body);
         successWrap(res);
       } catch (err) {
         const e = err as Error & PromiseRejectedResult;
@@ -146,7 +146,7 @@ export default {
       }
       res.body = storedData;
       res.status = 200;
-      res.headers.set('Content-Type', 'appliation/json');
+      res.headers.set('Content-Type', 'text/plain');
       res.headers.set('Cache-Control', `no-transform, private, no-store`);
     });
 
