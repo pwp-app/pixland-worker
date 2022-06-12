@@ -4,7 +4,7 @@ import { ERRORS } from './constants/errors';
 import { varyWrap } from './utils/cors';
 import { getFileKey } from './utils/file';
 import { CommonError, errorWrap, successWrap } from './utils/response';
-import { validateAndGetAuthInfo, validateHost, validateRequest } from './utils/validator';
+import { validateAndGetAuthInfo, validateHost, validateReferer, validateRequest } from './utils/validator';
 
 const SHA1_HEX_STR_LEN = 40;
 
@@ -17,6 +17,12 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // check host
     if (!validateHost(request)) {
+      return new Response(null, {
+        status: 403,
+      });
+    }
+
+    if (!validateReferer(request)) {
       return new Response(null, {
         status: 403,
       });

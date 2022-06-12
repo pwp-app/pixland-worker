@@ -10,6 +10,14 @@ export const validateHost = (req: Request) => {
   return WHITELIST_DOMAIN.includes(new URL(req.url).hostname);
 };
 
+export const validateReferer = (req: Request) => {
+  const referer = req.headers.get('Referer');
+  if (!referer) {
+    return false;
+  }
+  return WHITELIST_DOMAIN.some((domain) => referer.startsWith(`https://${domain}`));
+};
+
 export const validateAndGetAuthInfo = (req: RouterRequest) => {
   const authHeaders = getAuthHeaders(req);
   const hasEmpty = Object.keys(authHeaders).some((key) => !authHeaders[key as keyof typeof authHeaders]);
