@@ -123,7 +123,7 @@ export default {
       }
       res.body = storedData;
       res.status = 200;
-      res.headers.set('Content-Type', 'appliation/json');
+      res.headers.set('Content-Type', 'text/plain');
       res.headers.set('Cache-Control', `no-transform, private, must-revalidate, max-age=0`);
       res.headers.set('Last-Modified', new Date().toUTCString()); // regard last get time as last modified date to reduce cpu consume for content negotiation
     });
