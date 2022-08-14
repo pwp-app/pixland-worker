@@ -110,13 +110,14 @@ export default {
         errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'File key should not be empty.', 400));
         return;
       }
-      // check file key length (file key should be a sha1)
-      if (fileKey.length !== SHA1_HEX_STR_LEN) {
+      // check file hash length (file key should be a sha1 with extension)
+      const fileHash = fileKey.includes('.json') ? fileKey.replace('.json', '') : fileKey;
+      if (fileHash.length !== SHA1_HEX_STR_LEN) {
         errorWrap(res, new CommonError(ERRORS.FILE_KEY_INVALID, 'Invalid file key.', 400));
         return;
       }
       // get from r2
-      const storedData = await env.pixland.get(wrapFileKey(fileKey));
+      const storedData = await env.pixland.get(wrapFileKey(fileHash));
       if (!storedData) {
         errorWrap(res, new CommonError(ERRORS.OBJECT_NOT_FOUND, 'Object not found.', 404));
         return;
