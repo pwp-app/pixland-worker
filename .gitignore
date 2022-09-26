@@ -170,3 +170,4 @@ dist
 
 .dev.vars
 .history
+wrangler.toml
